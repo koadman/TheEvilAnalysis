@@ -1,0 +1,124 @@
+---
+title: "Evil alliance in milk microbiome"
+author: "Shu Mei Teo, Aaron darling"
+date: "15 April 2015"
+output: 
+  html_document:
+    pandoc_args: [
+      "+RTS",
+      "-K64m",
+      "-RTS",
+    ]
+---
+
+```{r global_opts}
+require('knitr')
+opts_knit$set(root.dir="~/Desktop/milk_microbiome/")
+opts_chunk$set(fig.width=10, fig.height=10, fig.path='./Figs/',
+               echo=T, warning=FALSE, message=FALSE)
+```
+
+```{run spearman method - used in the paper}
+
+#download data from http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0021313#s5 Table S1
+#I named it test.txt here
+
+require("Hmisc")
+x2 = read.table("test.txt",row.names=1,header=TRUE)
+
+#calculate pairwise spearman correlation
+cor.x = cor(t(as.matrix(x2)), method = "spearman")
+
+#get p values
+p.x = rcorr(t(as.matrix(x2)), type = "spearman")$P
+
+#convert non-significant correlations to 0
+p.x2 = apply(p.x, c(1,2), function(x){ifelse(x<0.05,1,0)})
+cor.x2 = cor.x * p.x2
+
+#remove "Other" category
+cor.x2 = cor.x2[-16,-16] 
+```
+
+```{r, echo = TRUE}
+require(pheatmap)
+pheatmap(as.matrix(cor.x2))
+```
+
+```{r run_python}
+system('python SparCC.py test.txt -i 20 --cor_file=testCor_mat.out') 
+system('python MakeBootstraps.py test.txt  -n 100 -o Simstest')
+system('seq 0 99 | parallel python SparCC.py Simstest_{}.txt -i 20 --cor_file=simtest_cor_{}.txt')
+system('python PseudoPvals.py test.Cor_mat.out simtest_cor 100 -o pvals_two_sided.txt -t "two_sided"') 
+```
+
+```{read in and plot SparCC results}
+
+#change directory accordingly
+setwd("~/Desktop/milk_microbiome/")
+
+#read in SparCC outputs
+x = read.table("test.Cor_mat.out",sep="\t",row.names=1,header=T)
+p = read.table("pvals_two_sided.txt", sep="\t",row.names=1,header=T)
+p2 = apply(p, c(1,2), function(x){ifelse(x<0.05,1,0)})
+
+plotx = x
+plotx = plotx * p2 #convert non-significant correlations to 0
+diag(plotx) = NA
+
+w = which(rownames(plotx)== "Other") #remove the "Other" category
+
+```
+
+```{r, echo =  TRUE}
+#plot the results
+pheatmap(as.matrix(plotx[-w,-w]))
+```
+
+```{run ccrepe}
+require(ccrepe)
+#relative abundance data
+
+#function converts count data to relative abundance
+#input OTU matrix, indicate if rows are "samples" or "otu"
+relative_abundance = function(take.otu, rows = c("samples","otu")){
+  if(rows == "samples"){
+		counts_perSample = apply(take.otu,1,sum)
+		percent = matrix(0,nrow = nrow(take.otu), ncol = ncol(take.otu)) 
+		for(i in 1:nrow(take.otu)){
+			percent[i,] = take.otu[i,]/counts_perSample[i]
+		}
+		rownames(percent) = rownames(take.otu)
+	}
+	if(rows == "otu"){
+		counts_perSample = apply(take.otu,2,sum)
+		percent = matrix(0,nrow = nrow(take.otu), ncol = ncol(take.otu)) 
+		for(i in 1:ncol(take.otu)){
+			percent[,i] = take.otu[,i]/counts_perSample[i]
+		}
+		colnames(percent) = colnames(take.otu)
+	}
+	percent
+}
+
+ccrepe.x = relative_abundance(t(x2),rows = "samples")
+
+#run ccrepe
+ccrepe.out = ccrepe(x = ccrepe.x)
+
+#obtain correlation values
+plotx = ccrepe.out$sim.score
+colnames(plotx) = rownames(plotx) = rownames(x2)
+p.x2 = apply(ccrepe.out$q.values, c(1,2), function(x){ifelse(x<0.05,1,0)})
+cor.x2 = plotx * p.x2
+
+#remove "Other" category
+cor.x2 = cor.x2[-16,-16]
+
+```
+
+```{r, echo = TRUE}
+pheatmap(as.matrix(cor.x2))
+```
+
+
