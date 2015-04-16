@@ -1,6 +1,6 @@
 ---
 title: "Evil alliance in milk microbiome"
-author: "Shu Mei Teo, Aaron darling"
+author: "Shu Mei Teo, Aaron E. Darling"
 date: "15 April 2015"
 output: 
   html_document:
@@ -17,6 +17,36 @@ opts_knit$set(root.dir="~/Desktop/milk_microbiome/")
 opts_chunk$set(fig.width=10, fig.height=10, fig.path='./Figs/',
                echo=T, warning=FALSE, message=FALSE)
 ```
+
+## An "evil alliance" in the human milk microbiome? Or just an accident? An unsolicited open peer review.
+
+By (Shu Mei Teo)[http://www.microbiol.unimelb.edu.au/new_research/immunology/inouye_lab_profiles.html#shu] and (Aaron E. Darling)[http://darlinglab.org]
+
+Recently a publication appeared with the captivating title ["Network analysis suggests a potentially ‘evil’ alliance of opportunistic pathogens inhibited by a cooperative network in human milk bacterial communities"](http://www.nature.com/srep/2015/150205/srep08275/full/srep08275.html). We read this article with great interest as we recently initiated a collaborative project to study the milk microbiota in a high risk atopy cohort, sponsored by the [Australian NH&MRC](https://www.nhmrc.gov.au/). The manuscript's title proffers a [bold claim](http://www.urbandictionary.com/define.php?term=flamebait) which is further detailed in the abstract, namely that a pair of 'evil' bacterial genera may be responsible for mastitis. This pair of 'evil' bacteria are *Staphylococcus* and *Corynebacterium*, which is particularly interesting since these two genera are commonly found as nonpathogenic commensals on human skin. The relationship is depicted in the paper's Figure 1A, which shows that abundance of these two genera are strongly anticorrelated with each other:
+
+
+
+As we continued reading the paper we wondered, how did the authors arrive at the conclusion that these two genera form an evil alliance?
+Digging into the details, the first thing we learn is that the work re-analyzes a milk microbiome dataset previously published by [Hunt et al. 2011](http://www.ncbi.nlm.nih.gov/pubmed/21695057?dopt=Abstract). That manuscript has some of the same coauthors as the current work. Ma et al have not generated any new milk microbiome data. Rather, they have taken as their primary data a table of the counts of genera-level 16S sequence read assignments that was published in Hunt et al 2011. These counts were produced by pyrosequencing of the V1-V2 region of 16S rRNA followed by analysis with the RDP classifier. Ma et al took the table of genera counts per sample and calculated Spearman's correlation on them, then drew a graphical representation with genera as nodes and links between any genera that have a Spearman's p-value &lt; 0.05. Whoa whoa, wait guys...[STOP THE MUSIC](https://youtu.be/j-LfQCPJJkY?t=50)!!1!
+
+**16S amplicon sequence counts are compositional data**
+
+What does that mean? and why should you care?
+
+It means that when we estimate genus abundances with 16S sequencing, we are not actually counting the total number of cells of each genus in a fixed volume of sample. Instead, we are measuring *relative* abundances. This is due to the nature of how modern DNA sequencing platforms typically operate, often confounded by sample handling practices and data analysis techniques. When carrying out the commonly used protocols for 16S amplicon sequencing one obtains relative abundance estimates of the bacteria in the sample. This data type is also known as compositional data because it describes the composition of a sample.
+
+Why should we care? Well, it has been known for a very long time ([at least 100 years](http://en.wikipedia.org/wiki/Spurious_correlation)) that calculating correlations on compositional data can yield a high rate of false correlations. Many of the worst examples of spurious correlation can be blamed on applying Pearson's correlation to compositional data. Happily though, Ma et al 2015 did not naively apply Pearson's. Instead, the methods section states they applied Spearman's rank-sum correlation test. In principle, Spearman's should be somewhat less prone to generate spurious results than Pearson's would, but it's not perfect either. In fact, previous work in the microbiome field has specifically aimed to develop valid techniques for detecting correlations in compositional data. Two examples are the SparCC technique [Friedman and Alm 2012](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1002687) and the ccrepe package for R [Schwager et al](http://huttenhower.sph.harvard.edu/ccrepe). There are undoubtedly others and it would be nice to add them here. So this led us to wonder, does the evil alliance of *Staphylococcus* and *Corynebacterium* still exist under analysis with methods adapted for compositional data?
+
+To answer this question Shu Mei obtained a copy of the original genus abundance table from Hunt et al 2011 and loaded it into R. The first step was to see if we could reproduce the results of Ma et al 2015 by following the methods described in their manuscript. Running Spearman's on the genus abundance table gives the following, viewed as a heatmap:
+
+Indeed, we observe a strong positive correlation between *Staphylococcus* and *Corynebacterium*, and a strong negative correlation between those two and the others, just as described by Ma et al 2015. So far so good. Then we applied the SparCC method, and plotted the result in the same manner:
+
+Uh oh. Staph and Coryne still love each other, but their hate for the other bugs has disappeared. This is starting to look like separate drum circles at a hippie festival, not warring factions. What if we try with ccrepe?
+
+Same story. There's a positive correlation between *Staphylococcus* and *Corynebacterium* but most of the negative correlations that were found by Spearman's are not recovered by either of these two methods for analyzing compositional data. 
+
+
+
 
 ```{run spearman method - used in the paper}
 
